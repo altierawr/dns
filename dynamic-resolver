@@ -1,0 +1,47 @@
+#!/usr/bin/python -u 
+import sys
+import re
+
+def parse_query(query):
+    """
+    Parse the query to extract the IP address from the subdomain.
+    Example: 1-2-3-4.test.domain.com -> 1.2.3.4
+    """
+    match = re.match(r"^(\d+)-(\d+)-(\d+)-(\d+)\..{1,}\.(domain\.com)$", query)
+    if match:
+        ip = ".".join(match.groups()[:4])
+        return ip
+    return None
+
+def main():
+    sys.stdout.write("OK\t\n")
+    sys.stdout.flush()
+
+    while True:
+        line = sys.stdin.readline().strip()
+        if not line:
+            continue
+
+        # Parse the query from PowerDNS
+        parts = line.split("\t")
+        if len(parts) < 4:
+            continue
+
+        qname = parts[1]  # Query name
+        qclass = parts[2] # Query class (usually IN)
+        qtype = parts[3]  # Query type (A, AAAA, etc.)
+
+        ip = parse_query(qname)
+        if qtype in ["A", "ANY"]:
+            if ip:
+                response = f"DATA\t{qname}\t{qclass}\tA\t3600\t-1\t{ip}\n"
+                sys.stdout.write(response)
+        if qtype in ["SOA"]:
+                response = f"DATA\t{qname}\t{qclass}\tSOA\t3600\t-1\tns1.domain.com admin.domain.com 2025012112 28800 7200 60488 86400\n"
+                sys.stdout.write(response)
+
+        sys.stdout.write("END\n")
+        sys.stdout.flush()
+
+if __name__ == "__main__":
+    main()
